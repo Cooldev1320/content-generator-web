@@ -18,9 +18,10 @@ class ApiService {
   private setupInterceptors(): void {
     // Request interceptor
     this.api.interceptors.request.use(
-      (config: AxiosRequestConfig) => {
+      (config) => {
         const token = this.getAuthToken();
-        if (token && config.headers) {
+        if (token) {
+          config.headers = config.headers || {};
           config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
@@ -135,6 +136,17 @@ class ApiService {
       },
     });
     
+    return response.data;
+  }
+
+  // History methods
+  async getHistory(params?: any): Promise<any> {
+    const response = await this.api.get('/api/history', { params });
+    return response.data;
+  }
+
+  async clearHistory(): Promise<any> {
+    const response = await this.api.delete('/api/history');
     return response.data;
   }
 }
