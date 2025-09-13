@@ -1,95 +1,88 @@
-import React from 'react';
-import { Badge } from '@/components/ui/Badge';
-import { Button } from '@/components/ui/Button';
+'use client';
 
-interface Template {
-  id: string;
-  name: string;
-  category: string;
-  thumbnail: string;
-  width: number;
-  height: number;
-  isPremium: boolean;
-  description?: string;
-}
+import { Card, Badge, Button } from '@/components/ui';
+import type { TemplateListDto } from '@/types';
 
 interface TemplateCardProps {
-  template: Template;
-  onSelect?: (template: Template) => void;
-  onPreview?: (template: Template) => void;
-  className?: string;
+  template: TemplateListDto;
+  onSelect: (templateId: string) => void;
+  onPreview?: (templateId: string) => void;
 }
 
-export const TemplateCard: React.FC<TemplateCardProps> = ({
-  template,
-  onSelect,
-  onPreview,
-  className = '',
-}) => {
+export default function TemplateCard({ template, onSelect, onPreview }: TemplateCardProps) {
+  const getCategoryName = (category: string) => {
+    const categories: Record<string, string> = {
+      'social': 'Social Media',
+      'marketing': 'Marketing',
+      'business': 'Business',
+      'branding': 'Branding',
+      'blank': 'Blank'
+    };
+    return categories[category] || category;
+  };
+
   return (
-    <div className={`bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden hover:shadow-md transition-shadow ${className}`}>
-      {/* Template Preview */}
-      <div className="relative aspect-square bg-gray-100 overflow-hidden group cursor-pointer"
-           onClick={() => onPreview?.(template)}>
-        <div className="w-full h-full flex items-center justify-center text-4xl">
-          {template.thumbnail}
-        </div>
+    <Card className="p-0 overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group">
+      <div 
+        className="aspect-video bg-gray-200 flex items-center justify-center relative"
+        onClick={() => onSelect(template.id)}
+      >
+        {template.thumbnailUrl ? (
+          <img
+            src={template.thumbnailUrl}
+            alt={template.name}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+          />
+        ) : (
+          <div className="text-gray-400 text-4xl">🎨</div>
+        )}
         
-        {/* Premium Badge */}
         {template.isPremium && (
           <div className="absolute top-2 right-2">
-            <Badge variant="warning" size="sm">PRO</Badge>
+            <Badge variant="warning" size="sm">Premium</Badge>
           </div>
         )}
 
-        {/* Hover Overlay */}
-        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-200 flex items-center justify-center">
-          <Button
+        {onPreview && (
+          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center">
+            <Button
+              variant="primary"
+              size="sm"
+              className="opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+              onClick={(e) => {
+                e.stopPropagation();
+                onPreview(template.id);
+              }}
+            >
+              Preview
+            </Button>
+          </div>
+        )}
+      </div>
+      
+      <div className="p-4">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-gray-900 truncate">{template.name}</h3>
+        </div>
+        
+        <p className="text-sm text-gray-600 mb-3 line-clamp-2">
+          {template.description}
+        </p>
+        
+        <div className="flex items-center justify-between">
+          <Badge variant="secondary" size="sm">
+            {getCategoryName(template.category)}
+          </Badge>
+          
+          <Button 
+            size="sm" 
             variant="primary"
-            size="sm"
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
-            onClick={(e) => {
-              e.stopPropagation();
-              onPreview?.(template);
-            }}
+            onClick={() => onSelect(template.id)}
           >
-            Preview
+            Use Template
           </Button>
         </div>
       </div>
-
-      {/* Template Info */}
-      <div className="p-4">
-        <div className="flex items-start justify-between mb-2">
-          <h3 className="font-medium text-gray-900 text-sm line-clamp-2">
-            {template.name}
-          </h3>
-          <Badge variant="secondary" size="xs">
-            {template.category}
-          </Badge>
-        </div>
-        
-        <p className="text-xs text-gray-500 mb-3">
-          {template.width} × {template.height}px
-        </p>
-
-        {template.description && (
-          <p className="text-xs text-gray-600 mb-3 line-clamp-2">
-            {template.description}
-          </p>
-        )}
-
-        <Button
-          variant={template.isPremium ? "primary" : "outline"}
-          size="sm"
-          className="w-full"
-          onClick={() => onSelect?.(template)}
-        >
-          {template.isPremium ? 'Use Template (Pro)' : 'Use Template'}
-        </Button>
-      </div>
-    </div>
+    </Card>
   );
-};
-
-export default TemplateCard;
+}

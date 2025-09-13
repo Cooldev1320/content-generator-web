@@ -1,62 +1,42 @@
+import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
-import { LoginCredentials, RegisterData } from '@/types/auth';
 
-export const useAuth = () => {
-  const {
-    user,
-    isAuthenticated,
-    isLoading,
-    error,
-    login,
-    register,
-    logout,
-    clearError,
-    loadUser
-  } = useAuthStore();
+export function useAuth(requireAuth = true) {
+  const { user, isAuthenticated, isLoading, loadUser } = useAuthStore();
+  const router = useRouter();
 
-  const loginUser = async (credentials: LoginCredentials) => {
-    try {
-      clearError();
-      const success = await login(credentials);
-      return success;
-    } catch (err) {
-      console.error('Login error:', err);
-      return false;
+  useEffect(() => {
+    // Load user on mount if we have a token
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('access_token');
+      if (token && !user) {
+        loadUser();
+      }
     }
-  };
+  }, [user, loadUser]);
 
-  const registerUser = async (data: RegisterData) => {
-    try {
-      clearError();
-      const success = await register(data);
-      return success;
-    } catch (err) {
-      console.error('Register error:', err);
-      return false;
+  useEffect(() => {
+    if (!isLoading) {
+      if (requireAuth && !isAuthenticated) {
+        router.push('/login');
+      } else if (!requireAuth && isAuthenticated) {
+        router.push('/dashboard');
+      }
     }
-  };
-
-  const logoutUser = async () => {
-    try {
-      await logout();
-      return true;
-    } catch (err) {
-      console.error('Logout error:', err);
-      return false;
-    }
-  };
+  }, [isAuthenticated, isLoading, requireAuth, router]);
 
   return {
     user,
     isAuthenticated,
     isLoading,
-    error,
-    login: loginUser,
-    register: registerUser,
-    logout: logoutUser,
-    clearError,
-    loadUser,
   };
-};
+}
 
-export default useAuth;
+export function useRequireAuth() {
+  return useAuth(true);
+}
+
+export function useRedirectIfAuth() {
+  return useAuth(false);
+}

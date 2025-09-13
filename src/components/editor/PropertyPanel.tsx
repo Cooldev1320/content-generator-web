@@ -1,233 +1,240 @@
 'use client';
 
-import React from 'react';
-import { Input } from '@/components/ui/Input';
-import { Button } from '@/components/ui/Button';
-
-interface SelectedElement {
-  id: string;
-  type: string;
-  x?: number;
-  y?: number;
-  width?: number;
-  height?: number;
-  radius?: number;
-  text?: string;
-  fontSize?: number;
-  fontFamily?: string;
-  fill?: string;
-  stroke?: string;
-  strokeWidth?: number;
-}
+import { useState } from 'react';
+import { Button, Input } from '@/components/ui';
 
 interface PropertyPanelProps {
-  selectedElement?: SelectedElement;
-  onElementUpdate?: (elementId: string, updates: Partial<SelectedElement>) => void;
+  selectedElement?: {
+    id: string;
+    type: string;
+    left: number;
+    top: number;
+    width?: number;
+    height?: number;
+    fill?: string;
+    stroke?: string;
+    strokeWidth?: number;
+    opacity?: number;
+    fontSize?: number;
+    fontFamily?: string;
+    text?: string;
+  };
+  onPropertyChange: (property: string, value: any) => void;
 }
 
-export const PropertyPanel: React.FC<PropertyPanelProps> = ({
-  selectedElement,
-  onElementUpdate,
-}) => {
-  const handleUpdate = (property: string, value: any) => {
-    if (selectedElement) {
-      onElementUpdate?.(selectedElement.id, { [property]: value });
-    }
-  };
+export default function PropertyPanel({ selectedElement, onPropertyChange }: PropertyPanelProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
 
   if (!selectedElement) {
     return (
-      <div className="w-64 bg-white border-l border-gray-200 p-4">
-        <div className="text-center py-8 text-gray-500">
-          <p className="text-sm">No element selected</p>
-          <p className="text-xs mt-1">Click on an element to edit properties</p>
+      <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <h3 className="text-sm font-medium text-gray-900">Properties</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsExpanded(!isExpanded)}
+            >
+              <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </Button>
+          </div>
         </div>
+        {isExpanded && (
+          <div className="flex-1 p-4">
+            <div className="text-center py-8">
+              <div className="text-gray-400 text-4xl mb-2">⚙️</div>
+              <p className="text-sm text-gray-500">Select an element to edit properties</p>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
-    <div className="w-64 bg-white border-l border-gray-200 p-4 overflow-y-auto">
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Properties</h3>
-        <p className="text-sm text-gray-600 capitalize">{selectedElement.type}</p>
+    <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-gray-900">Properties</h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsExpanded(!isExpanded)}
+          >
+            <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </Button>
+        </div>
       </div>
 
-      <div className="space-y-4">
-        {/* Position */}
-        <div>
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Position</h4>
-          <div className="grid grid-cols-2 gap-2">
-            <Input
-              label="X"
-              type="number"
-              value={selectedElement.x || 0}
-              onChange={(e) => handleUpdate('x', Number(e.target.value) || 0)}
-            />
-            <Input
-              label="Y"
-              type="number"
-              value={selectedElement.y || 0}
-              onChange={(e) => handleUpdate('y', Number(e.target.value) || 0)}
-            />
-          </div>
-        </div>
-
-        {/* Size for rectangles */}
-        {selectedElement.type === 'rectangle' && (
-          <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Size</h4>
-            <div className="grid grid-cols-2 gap-2">
-              <Input
-                label="Width"
-                type="number"
-                value={selectedElement.width || 0}
-                onChange={(e) => handleUpdate('width', Number(e.target.value) || 0)}
-              />
-              <Input
-                label="Height"
-                type="number"
-                value={selectedElement.height || 0}
-                onChange={(e) => handleUpdate('height', Number(e.target.value) || 0)}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Radius for circles */}
-        {selectedElement.type === 'circle' && (
-          <div>
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Size</h4>
-            <Input
-              label="Radius"
-              type="number"
-              value={selectedElement.radius || 0}
-              onChange={(e) => handleUpdate('radius', Number(e.target.value) || 0)}
-            />
-          </div>
-        )}
-
-        {/* Text properties */}
-        {selectedElement.type === 'text' && (
-          <>
+      {isExpanded && (
+        <div className="flex-1 p-4 overflow-y-auto">
+          <div className="space-y-4">
+            {/* Position */}
             <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Text</h4>
-              <Input
-                label="Content"
-                value={selectedElement.text || ''}
-                onChange={(e) => handleUpdate('text', e.target.value)}
-              />
-            </div>
-            <div>
-              <h4 className="text-sm font-medium text-gray-700 mb-2">Typography</h4>
-              <div className="space-y-2">
-                <Input
-                  label="Font Size"
-                  type="number"
-                  value={selectedElement.fontSize || 16}
-                  onChange={(e) => handleUpdate('fontSize', Number(e.target.value) || 16)}
-                />
+              <label className="block text-xs font-medium text-gray-700 mb-2">Position</label>
+              <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Font Family
-                  </label>
+                  <label className="block text-xs text-gray-500 mb-1">X</label>
+                  <Input
+                    type="number"
+                    value={selectedElement.left}
+                    onChange={(e) => onPropertyChange('left', parseFloat(e.target.value) || 0)}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Y</label>
+                  <Input
+                    type="number"
+                    value={selectedElement.top}
+                    onChange={(e) => onPropertyChange('top', parseFloat(e.target.value) || 0)}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Size */}
+            {selectedElement.width !== undefined && selectedElement.height !== undefined && (
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-2">Size</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Width</label>
+                    <Input
+                      type="number"
+                      value={selectedElement.width}
+                      onChange={(e) => onPropertyChange('width', parseFloat(e.target.value) || 0)}
+                      className="text-sm"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">Height</label>
+                    <Input
+                      type="number"
+                      value={selectedElement.height}
+                      onChange={(e) => onPropertyChange('height', parseFloat(e.target.value) || 0)}
+                      className="text-sm"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Fill Color */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">Fill Color</label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="color"
+                  value={selectedElement.fill || '#000000'}
+                  onChange={(e) => onPropertyChange('fill', e.target.value)}
+                  className="w-8 h-8 rounded border border-gray-300"
+                />
+                <Input
+                  value={selectedElement.fill || ''}
+                  onChange={(e) => onPropertyChange('fill', e.target.value)}
+                  placeholder="#000000"
+                  className="text-sm"
+                />
+              </div>
+            </div>
+
+            {/* Stroke */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">Stroke</label>
+              <div className="space-y-2">
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="color"
+                    value={selectedElement.stroke || '#000000'}
+                    onChange={(e) => onPropertyChange('stroke', e.target.value)}
+                    className="w-6 h-6 rounded border border-gray-300"
+                  />
+                  <Input
+                    value={selectedElement.stroke || ''}
+                    onChange={(e) => onPropertyChange('stroke', e.target.value)}
+                    placeholder="#000000"
+                    className="text-sm flex-1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Width</label>
+                  <Input
+                    type="number"
+                    value={selectedElement.strokeWidth || 0}
+                    onChange={(e) => onPropertyChange('strokeWidth', parseFloat(e.target.value) || 0)}
+                    className="text-sm"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Opacity */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-2">Opacity</label>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={selectedElement.opacity || 1}
+                  onChange={(e) => onPropertyChange('opacity', parseFloat(e.target.value))}
+                  className="flex-1"
+                />
+                <span className="text-xs text-gray-500 w-8">
+                  {Math.round((selectedElement.opacity || 1) * 100)}%
+                </span>
+              </div>
+            </div>
+
+            {/* Text Properties */}
+            {selectedElement.type === 'text' && (
+              <>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">Text</label>
+                  <textarea
+                    value={selectedElement.text || ''}
+                    onChange={(e) => onPropertyChange('text', e.target.value)}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
+                    rows={3}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">Font Size</label>
+                  <Input
+                    type="number"
+                    value={selectedElement.fontSize || 16}
+                    onChange={(e) => onPropertyChange('fontSize', parseFloat(e.target.value) || 16)}
+                    className="text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-2">Font Family</label>
                   <select
                     value={selectedElement.fontFamily || 'Arial'}
-                    onChange={(e) => handleUpdate('fontFamily', e.target.value)}
-                    className="w-full px-3 py-1 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    onChange={(e) => onPropertyChange('fontFamily', e.target.value)}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 rounded"
                   >
                     <option value="Arial">Arial</option>
                     <option value="Helvetica">Helvetica</option>
                     <option value="Times New Roman">Times New Roman</option>
                     <option value="Georgia">Georgia</option>
                     <option value="Verdana">Verdana</option>
+                    <option value="Courier New">Courier New</option>
                   </select>
                 </div>
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Fill Color */}
-        <div>
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Fill</h4>
-          <div className="flex items-center space-x-2">
-            <input
-              type="color"
-              value={selectedElement.fill || '#000000'}
-              onChange={(e) => handleUpdate('fill', e.target.value)}
-              className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
-            />
-            <Input
-              value={selectedElement.fill || '#000000'}
-              onChange={(e) => handleUpdate('fill', e.target.value)}
-              placeholder="#000000"
-              className="flex-1"
-            />
+              </>
+            )}
           </div>
         </div>
-
-        {/* Stroke */}
-        <div>
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Stroke</h4>
-          <div className="space-y-2">
-            <div className="flex items-center space-x-2">
-              <input
-                type="color"
-                value={selectedElement.stroke || '#000000'}
-                onChange={(e) => handleUpdate('stroke', e.target.value)}
-                className="w-8 h-8 border border-gray-300 rounded cursor-pointer"
-              />
-              <Input
-                value={selectedElement.stroke || '#000000'}
-                onChange={(e) => handleUpdate('stroke', e.target.value)}
-                placeholder="#000000"
-                className="flex-1"
-              />
-            </div>
-            <Input
-              label="Stroke Width"
-              type="number"
-              value={selectedElement.strokeWidth || 0}
-              onChange={(e) => handleUpdate('strokeWidth', Number(e.target.value) || 0)}
-              min="0"
-            />
-          </div>
-        </div>
-
-        {/* Actions */}
-        <div className="pt-4 border-t border-gray-200">
-          <h4 className="text-sm font-medium text-gray-700 mb-2">Actions</h4>
-          <div className="space-y-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() => {
-                // Duplicate element logic
-                console.log('Duplicate element');
-              }}
-            >
-              Duplicate
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="w-full"
-              onClick={() => {
-                // Delete element logic
-                if (confirm('Delete this element?')) {
-                  console.log('Delete element');
-                }
-              }}
-            >
-              Delete
-            </Button>
-          </div>
-        </div>
-      </div>
+      )}
     </div>
   );
-};
-
-export default PropertyPanel;
+}

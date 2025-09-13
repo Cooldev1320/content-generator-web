@@ -1,222 +1,145 @@
-import { useState, useCallback, useRef } from 'react';
-import { CanvasElement, CanvasState, CanvasHistory, CanvasToolState } from '@/types/canvas';
+import { useEffect, useCallback } from 'react';
+import { useCanvasStore } from '@/store/canvasStore';
+import { generateId } from '@/lib/utils';
+import type { CanvasElement } from '@/types';
 
-const initialCanvasState: CanvasState = {
-  elements: [],
-  selectedElementIds: [],
-  canvasWidth: 800,
-  canvasHeight: 600,
-  zoom: 1,
-  panX: 0,
-  panY: 0,
-  backgroundColor: '#ffffff',
-  gridVisible: true,
-  snapToGrid: false,
-  gridSize: 20,
-};
+export function useCanvas() {
+  const canvasStore = useCanvasStore();
 
-const initialToolState: CanvasToolState = {
-  activeTool: 'select',
-  isDrawing: false,
-};
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.ctrlKey || event.metaKey) {
+        switch (event.key) {
+          case 'z':
+            event.preventDefault();
+            if (event.shiftKey) {
+              canvasStore.redo();
+            } else {
+              canvasStore.undo();
+            }
+            break;
+          case 'y':
+            event.preventDefault();
+            canvasStore.redo();
+            break;
+          case 'a':
+            event.preventDefault();
+            canvasStore.selectAll();
+            break;
+          case 'd':
+            event.preventDefault();
+            if (canvasStore.selectedElementIds.length === 1) {
+              canvasStore.duplicateElement(canvasStore.selectedElementIds[0]);
+            }
+            break;
+        }
+      } else if (event.key === 'Delete' || event.key === 'Backspace') {
+        event.preventDefault();
+        canvasStore.selectedElementIds.forEach((id) => {
+          canvasStore.removeElement(id);
+        });
+      }
+    };
 
-export const useCanvas = (initialState?: Partial<CanvasState>) => {
-  const [canvasState, setCanvasState] = useState<CanvasState>({
-    ...initialCanvasState,
-    ...initialState,
-  });
-  
-  const [toolState, setToolState] = useState<CanvasToolState>(initialToolState);
-  const [history, setHistory] = useState<CanvasHistory>({
-    past: [],
-    present: canvasState,
-    future: [],
-  });
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [canvasStore]);
 
-  const historyRef = useRef(history);
-  historyRef.current = history;
-
-  // History management
-  const pushToHistory = useCallback((newState: CanvasState) => {
-    setHistory(prev => ({
-      past: [...prev.past, prev.present],
-      present: newState,
-      future: [],
-    }));
-  }, []);
-
-  const undo = useCallback(() => {
-    if (history.past.length === 0) return;
-    
-    const previous = history.past[history.past.length - 1];
-    const newPast = history.past.slice(0, history.past.length - 1);
-    
-    setHistory({
-      past: newPast,
-      present: previous,
-      future: [history.present, ...history.future],
+  // Helper functions
+  const addTextElement = useCallback((text: string, x: number, y: number) => {
+    canvasStore.addElement({
+      type: 'text',
+      text,
+      left: x,
+      top: y,
+      fontSize: 24,
+      fontFamily: 'Arial',
+      fill: '#000000',
+      width: 200,
+      height: 50,
     });
-    
-    setCanvasState(previous);
-  }, [history]);
+  }, [canvasStore]);
 
-  const redo = useCallback(() => {
-    if (history.future.length === 0) return;
-    
-    const next = history.future[0];
-    const newFuture = history.future.slice(1);
-    
-    setHistory({
-      past: [...history.past, history.present],
-      present: next,
-      future: newFuture,
+  const addRectangleElement = useCallback((x: number, y: number, width: number, height: number) => {
+    canvasStore.addElement({
+      type: 'rectangle',
+      left: x,
+      top: y,
+      width,
+      height,
+      fill: '#3b82f6',
+      stroke: '#1e40af',
+      strokeWidth: 2,
     });
-    
-    setCanvasState(next);
-  }, [history]);
+  }, [canvasStore]);
 
-  // Element management
-  const addElement = useCallback((element: Omit<CanvasElement, 'id' | 'zIndex'>) => {
-    const newElement: CanvasElement = {
-      ...element,
-      id: `element_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      zIndex: canvasState.elements.length,
-    };
-    
-    const newState = {
-      ...canvasState,
-      elements: [...canvasState.elements, newElement],
-      selectedElementIds: [newElement.id],
-    };
-    
-    setCanvasState(newState);
-    pushToHistory(newState);
-  }, [canvasState, pushToHistory]);
-
-  const updateElement = useCallback((id: string, updates: Partial<CanvasElement>) => {
-    const newState = {
-      ...canvasState,
-      elements: canvasState.elements.map(el =>
-        el.id === id ? { ...el, ...updates } : el
-      ),
-    };
-    
-    setCanvasState(newState);
-    pushToHistory(newState);
-  }, [canvasState, pushToHistory]);
-
-  const deleteElement = useCallback((id: string) => {
-    const newState = {
-      ...canvasState,
-      elements: canvasState.elements.filter(el => el.id !== id),
-      selectedElementIds: canvasState.selectedElementIds.filter(selectedId => selectedId !== id),
-    };
-    
-    setCanvasState(newState);
-    pushToHistory(newState);
-  }, [canvasState, pushToHistory]);
-
-  const selectElement = useCallback((id: string, multiSelect = false) => {
-    let newSelectedIds: string[];
-    
-    if (multiSelect) {
-      newSelectedIds = canvasState.selectedElementIds.includes(id)
-        ? canvasState.selectedElementIds.filter(selectedId => selectedId !== id)
-        : [...canvasState.selectedElementIds, id];
-    } else {
-      newSelectedIds = [id];
-    }
-    
-    setCanvasState(prev => ({
-      ...prev,
-      selectedElementIds: newSelectedIds,
-    }));
-  }, [canvasState.selectedElementIds]);
-
-  const clearSelection = useCallback(() => {
-    setCanvasState(prev => ({
-      ...prev,
-      selectedElementIds: [],
-    }));
-  }, []);
-
-  // Tool management
-  const setActiveTool = useCallback((tool: CanvasToolState['activeTool']) => {
-    setToolState(prev => ({
-      ...prev,
-      activeTool: tool,
-    }));
-  }, []);
-
-  // Canvas management
-  const setZoom = useCallback((zoom: number) => {
-    setCanvasState(prev => ({
-      ...prev,
-      zoom: Math.max(0.1, Math.min(5, zoom)),
-    }));
-  }, []);
-
-  const setPan = useCallback((panX: number, panY: number) => {
-    setCanvasState(prev => ({
-      ...prev,
-      panX,
-      panY,
-    }));
-  }, []);
-
-  const resetCanvas = useCallback(() => {
-    const newState = initialCanvasState;
-    setCanvasState(newState);
-    setToolState(initialToolState);
-    setHistory({
-      past: [],
-      present: newState,
-      future: [],
+  const addCircleElement = useCallback((x: number, y: number, radius: number) => {
+    canvasStore.addElement({
+      type: 'circle',
+      left: x - radius,
+      top: y - radius,
+      width: radius * 2,
+      height: radius * 2,
+      fill: '#ef4444',
+      stroke: '#dc2626',
+      strokeWidth: 2,
     });
-  }, []);
+  }, [canvasStore]);
 
-  // Export canvas state
-  const exportCanvasState = useCallback(() => {
-    return canvasState;
-  }, [canvasState]);
+  const addImageElement = useCallback((src: string, x: number, y: number, width: number, height: number) => {
+    canvasStore.addElement({
+      type: 'image',
+      src,
+      left: x,
+      top: y,
+      width,
+      height,
+    });
+  }, [canvasStore]);
 
-  // Import canvas state
-  const importCanvasState = useCallback((state: CanvasState) => {
-    setCanvasState(state);
-    pushToHistory(state);
-  }, [pushToHistory]);
+  const addLineElement = useCallback((x1: number, y1: number, x2: number, y2: number) => {
+    canvasStore.addElement({
+      type: 'line',
+      left: x1,
+      top: y1,
+      width: x2 - x1,
+      height: y2 - y1,
+      stroke: '#000000',
+      strokeWidth: 2,
+    });
+  }, [canvasStore]);
+
+  const centerCanvas = useCallback(() => {
+    canvasStore.setZoom(1);
+  }, [canvasStore]);
+
+  const fitToScreen = useCallback(() => {
+    // This would need to be implemented based on the actual canvas container size
+    canvasStore.setZoom(0.8);
+  }, [canvasStore]);
+
+  const zoomIn = useCallback(() => {
+    const newZoom = Math.min(canvasStore.zoom + 0.1, 5);
+    canvasStore.setZoom(newZoom);
+  }, [canvasStore.zoom, canvasStore]);
+
+  const zoomOut = useCallback(() => {
+    const newZoom = Math.max(canvasStore.zoom - 0.1, 0.1);
+    canvasStore.setZoom(newZoom);
+  }, [canvasStore.zoom, canvasStore]);
 
   return {
-    // State
-    canvasState,
-    toolState,
-    history,
-    
-    // Element methods
-    addElement,
-    updateElement,
-    deleteElement,
-    selectElement,
-    clearSelection,
-    
-    // Tool methods
-    setActiveTool,
-    
-    // Canvas methods
-    setZoom,
-    setPan,
-    resetCanvas,
-    
-    // History methods
-    undo,
-    redo,
-    canUndo: history.past.length > 0,
-    canRedo: history.future.length > 0,
-    
-    // Export/Import
-    exportCanvasState,
-    importCanvasState,
+    ...canvasStore,
+    // Helper functions
+    addTextElement,
+    addRectangleElement,
+    addCircleElement,
+    addImageElement,
+    addLineElement,
+    centerCanvas,
+    fitToScreen,
+    zoomIn,
+    zoomOut,
   };
-};
-
-export default useCanvas;
+}

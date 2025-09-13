@@ -1,33 +1,45 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { User, LoginCredentials, RegisterData } from '@/types/auth';
-import { apiService } from '@/lib/api';
+import type { User, LoginCredentials, RegisterData } from '@/types';
+import { apiClient } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+}
+
+interface AuthActions {
   login: (credentials: LoginCredentials) => Promise<boolean>;
   register: (data: RegisterData) => Promise<boolean>;
   logout: () => Promise<void>;
   clearError: () => void;
   loadUser: () => Promise<void>;
+  updateUser: (user: User) => void;
+  setLoading: (loading: boolean) => void;
 }
 
-export const useAuthStore = create<AuthState>()(
+type AuthStore = AuthState & AuthActions;
+
+const initialState: AuthState = {
+  user: null,
+  isAuthenticated: false,
+  isLoading: false,
+  error: null,
+};
+
+export const useAuthStore = create<AuthStore>()(
   persist(
     (set, get) => ({
-      user: null,
-      isAuthenticated: false,
-      isLoading: false,
-      error: null,
+      ...initialState,
 
       login: async (credentials: LoginCredentials) => {
         set({ isLoading: true, error: null });
         
         try {
-          const response = await apiService.login(credentials);
+          const response = await apiClient.login(credentials);
           
           if (response.success && response.data) {
             set({
@@ -38,16 +50,15 @@ export const useAuthStore = create<AuthState>()(
             });
             return true;
           } else {
-            set({
-              isLoading: false,
-              error: response.message || 'Login failed',
-            });
-            return false;
+            throw new Error(response.message || 'Login failed');
           }
-        } catch (error: any) {
+        } catch (error) {
+          const errorMessage = getErrorMessage(error);
           set({
             isLoading: false,
-            error: error.response?.data?.message || 'Login failed',
+            error: errorMessage,
+            isAuthenticated: false,
+            user: null,
           });
           return false;
         }
@@ -57,7 +68,7 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true, error: null });
         
         try {
-          const response = await apiService.register(data);
+          const response = await apiClient.register(data);
           
           if (response.success && response.data) {
             set({
@@ -68,16 +79,15 @@ export const useAuthStore = create<AuthState>()(
             });
             return true;
           } else {
-            set({
-              isLoading: false,
-              error: response.message || 'Registration failed',
-            });
-            return false;
+            throw new Error(response.message || 'Registration failed');
           }
-        } catch (error: any) {
+        } catch (error) {
+          const errorMessage = getErrorMessage(error);
           set({
             isLoading: false,
-            error: error.response?.data?.message || 'Registration failed',
+            error: errorMessage,
+            isAuthenticated: false,
+            user: null,
           });
           return false;
         }
@@ -87,9 +97,9 @@ export const useAuthStore = create<AuthState>()(
         set({ isLoading: true });
         
         try {
-          await apiService.logout();
+          await apiClient.logout();
         } catch (error) {
-          console.error('Logout error:', error);
+          // Ignore logout errors
         } finally {
           set({
             user: null,
@@ -100,38 +110,55 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      clearError: () => set({ error: null }),
-
       loadUser: async () => {
+        const token = typeof window !== 'undefined' 
+          ? localStorage.getItem('access_token') 
+          : null;
+        
+        if (!token) {
+          set({ isAuthenticated: false, user: null, isLoading: false });
+          return;
+        }
+
         set({ isLoading: true });
         
         try {
-          const response = await apiService.getProfile();
+          const response = await apiClient.getProfile();
           
           if (response.success && response.data) {
             set({
               user: response.data,
               isAuthenticated: true,
               isLoading: false,
+              error: null,
             });
           } else {
-            set({
-              user: null,
-              isAuthenticated: false,
-              isLoading: false,
-            });
+            throw new Error('Failed to load user profile');
           }
         } catch (error) {
           set({
             user: null,
             isAuthenticated: false,
             isLoading: false,
+            error: getErrorMessage(error),
           });
         }
       },
+
+      updateUser: (user: User) => {
+        set({ user });
+      },
+
+      setLoading: (loading: boolean) => {
+        set({ isLoading: loading });
+      },
+
+      clearError: () => {
+        set({ error: null });
+      },
     }),
     {
-      name: 'auth-storage',
+      name: 'auth-store',
       partialize: (state) => ({
         user: state.user,
         isAuthenticated: state.isAuthenticated,

@@ -1,12 +1,32 @@
-import axios, { AxiosInstance, AxiosResponse, AxiosRequestConfig } from 'axios';
-import { AuthResponse, LoginCredentials, RegisterData } from '@/types/auth';
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios';
+import { API_BASE_URL, API_ENDPOINTS } from './constants';
+import { getErrorMessage } from './utils';
+import type {
+  ApiResponse,
+  AuthResponse,
+  LoginCredentials,
+  RegisterData,
+  User,
+  Project,
+  ProjectListDto,
+  CreateProjectRequest,
+  UpdateProjectRequest,
+  Template,
+  TemplateListDto,
+  PagedResult,
+  HistoryItem,
+  ExportRequest,
+  ExportResponse,
+  FileUploadResponse,
+} from '@/types';
 
-class ApiService {
-  private api: AxiosInstance;
+class ApiClient {
+  private client: AxiosInstance;
 
   constructor() {
-    this.api = axios.create({
-      baseURL: process.env.NEXT_PUBLIC_API_URL,
+    this.client = axios.create({
+      baseURL: API_BASE_URL,
+      timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
       },
@@ -15,27 +35,44 @@ class ApiService {
     this.setupInterceptors();
   }
 
-  private setupInterceptors(): void {
-    // Request interceptor
-    this.api.interceptors.request.use(
+  private setupInterceptors() {
+    // Request interceptor to add auth token
+    this.client.interceptors.request.use(
       (config) => {
-        const token = this.getAuthToken();
+        const token = this.getToken();
         if (token) {
-          config.headers = config.headers || {};
           config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
       },
-      (error: any) => Promise.reject(error)
+      (error) => {
+        return Promise.reject(error);
+      }
     );
 
-    // Response interceptor
-    this.api.interceptors.response.use(
-      (response: any) => response,
-      (error: any) => {
+    // Response interceptor to handle errors
+    this.client.interceptors.response.use(
+      (response) => response,
+      async (error) => {
         if (error.response?.status === 401) {
-          this.clearAuthToken();
-          if (typeof window !== 'undefined') {
+          // Token expired, try to refresh
+          const refreshToken = this.getRefreshToken();
+          if (refreshToken) {
+            try {
+              const response = await this.refreshToken(refreshToken);
+              if (response.success && response.data) {
+                this.setTokens(response.data.accessToken, response.data.refreshToken);
+                // Retry the original request
+                const originalConfig = error.config;
+                originalConfig.headers.Authorization = `Bearer ${response.data.accessToken}`;
+                return this.client(originalConfig);
+              }
+            } catch (refreshError) {
+              this.clearTokens();
+              window.location.href = '/login';
+            }
+          } else {
+            this.clearTokens();
             window.location.href = '/login';
           }
         }
@@ -44,111 +81,425 @@ class ApiService {
     );
   }
 
-  private getAuthToken(): string | null {
+  private getToken(): string | null {
     if (typeof window !== 'undefined') {
-      return localStorage.getItem('auth_token');
+      return localStorage.getItem('access_token');
     }
     return null;
   }
 
-  private setAuthToken(token: string): void {
+  private getRefreshToken(): string | null {
     if (typeof window !== 'undefined') {
-      localStorage.setItem('auth_token', token);
+      return localStorage.getItem('refresh_token');
+    }
+    return null;
+  }
+
+  private setTokens(accessToken: string, refreshToken: string): void {
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('access_token', accessToken);
+      localStorage.setItem('refresh_token', refreshToken);
     }
   }
 
-  private clearAuthToken(): void {
+  private clearTokens(): void {
     if (typeof window !== 'undefined') {
-      localStorage.removeItem('auth_token');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
     }
   }
 
+  // Auth Methods
   async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    const response: AxiosResponse<AuthResponse> = await this.api.post('/api/auth/login', credentials);
-    
-    if (response.data.success && response.data.data?.accessToken) {
-      this.setAuthToken(response.data.data.accessToken);
+    try {
+      const response = await this.client.post<AuthResponse>(
+        API_ENDPOINTS.AUTH_LOGIN,
+        credentials
+      );
+      
+      if (response.data.success && response.data.data) {
+        this.setTokens(response.data.data.accessToken, response.data.data.refreshToken);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('user', JSON.stringify(response.data.data.user));
+        }
+      }
+      
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
     }
-    
-    return response.data;
   }
 
   async register(data: RegisterData): Promise<AuthResponse> {
-    const response: AxiosResponse<AuthResponse> = await this.api.post('/api/auth/register', data);
-    
-    if (response.data.success && response.data.data?.accessToken) {
-      this.setAuthToken(response.data.data.accessToken);
+    try {
+      const response = await this.client.post<AuthResponse>(
+        API_ENDPOINTS.AUTH_REGISTER,
+        data
+      );
+      
+      if (response.data.success && response.data.data) {
+        this.setTokens(response.data.data.accessToken, response.data.data.refreshToken);
+        if (typeof window !== 'undefined') {
+          localStorage.setItem('user', JSON.stringify(response.data.data.user));
+        }
+      }
+      
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
     }
-    
-    return response.data;
   }
 
   async logout(): Promise<void> {
     try {
-      await this.api.post('/api/auth/logout');
+      await this.client.post(API_ENDPOINTS.AUTH_LOGOUT);
+    } catch (error) {
+      // Ignore logout errors
     } finally {
-      this.clearAuthToken();
+      this.clearTokens();
     }
   }
 
-  async getProfile(): Promise<any> {
-    const response = await this.api.get('/api/auth/profile');
+  async refreshToken(refreshToken: string): Promise<AuthResponse> {
+    const response = await this.client.post<AuthResponse>(
+      API_ENDPOINTS.AUTH_REFRESH,
+      { refreshToken }
+    );
     return response.data;
   }
 
-  async getTemplates(params?: any): Promise<any> {
-    const response = await this.api.get('/api/templates', { params });
-    return response.data;
+  async getProfile(): Promise<ApiResponse<User>> {
+    try {
+      const response = await this.client.get<ApiResponse<User>>(
+        API_ENDPOINTS.AUTH_PROFILE
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
   }
 
-  async getTemplate(id: string): Promise<any> {
-    const response = await this.api.get(`/api/templates/${id}`);
-    return response.data;
+  async updateProfile(data: Partial<User>): Promise<ApiResponse<User>> {
+    try {
+      const response = await this.client.put<ApiResponse<User>>(
+        API_ENDPOINTS.AUTH_PROFILE,
+        data
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
   }
 
-  async getProjects(params?: any): Promise<any> {
-    const response = await this.api.get('/api/projects', { params });
-    return response.data;
+  async changePassword(data: {
+    currentPassword: string;
+    newPassword: string;
+    confirmNewPassword: string;
+  }): Promise<ApiResponse> {
+    try {
+      const response = await this.client.post<ApiResponse>(
+        API_ENDPOINTS.AUTH_CHANGE_PASSWORD,
+        data
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
   }
 
-  async createProject(data: any): Promise<any> {
-    const response = await this.api.post('/api/projects', data);
-    return response.data;
+  // Project Methods
+  async getProjects(params?: {
+    status?: string;
+    templateId?: string;
+    searchTerm?: string;
+    createdAfter?: string;
+    createdBefore?: string;
+    sortBy?: string;
+    sortDescending?: boolean;
+    page?: number;
+    pageSize?: number;
+  }): Promise<ApiResponse<PagedResult<ProjectListDto>>> {
+    try {
+      const response = await this.client.get<ApiResponse<PagedResult<ProjectListDto>>>(
+        API_ENDPOINTS.PROJECTS,
+        { params }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
   }
 
-  async updateProject(id: string, data: any): Promise<any> {
-    const response = await this.api.put(`/api/projects/${id}`, data);
-    return response.data;
+  async getProject(id: string): Promise<ApiResponse<Project>> {
+    try {
+      const response = await this.client.get<ApiResponse<Project>>(
+        API_ENDPOINTS.PROJECT_BY_ID(id)
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
   }
 
-  async deleteProject(id: string): Promise<any> {
-    const response = await this.api.delete(`/api/projects/${id}`);
-    return response.data;
+  async getRecentProjects(count: number = 5): Promise<ApiResponse<ProjectListDto[]>> {
+    try {
+      const response = await this.client.get<ApiResponse<ProjectListDto[]>>(
+        API_ENDPOINTS.PROJECTS_RECENT,
+        { params: { count } }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
   }
 
-  async uploadFile(file: File): Promise<any> {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    const response = await this.api.post('/api/files/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
-    });
-    
-    return response.data;
+  async createProject(data: CreateProjectRequest): Promise<ApiResponse<Project>> {
+    try {
+      const response = await this.client.post<ApiResponse<Project>>(
+        API_ENDPOINTS.PROJECTS,
+        data
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
   }
 
-  // History methods
-  async getHistory(params?: any): Promise<any> {
-    const response = await this.api.get('/api/history', { params });
-    return response.data;
+  async updateProject(id: string, data: UpdateProjectRequest): Promise<ApiResponse<Project>> {
+    try {
+      const response = await this.client.put<ApiResponse<Project>>(
+        API_ENDPOINTS.PROJECT_BY_ID(id),
+        data
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
   }
 
-  async clearHistory(): Promise<any> {
-    const response = await this.api.delete('/api/history');
-    return response.data;
+  async deleteProject(id: string): Promise<ApiResponse> {
+    try {
+      const response = await this.client.delete<ApiResponse>(
+        API_ENDPOINTS.PROJECT_BY_ID(id)
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async duplicateProject(id: string, newName: string): Promise<ApiResponse<Project>> {
+    try {
+      const response = await this.client.post<ApiResponse<Project>>(
+        API_ENDPOINTS.PROJECT_DUPLICATE(id),
+        { newName }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async exportProject(id: string, data: ExportRequest): Promise<ExportResponse> {
+    try {
+      const response = await this.client.post<ExportResponse>(
+        API_ENDPOINTS.PROJECT_EXPORT(id),
+        data
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  // Template Methods
+  async getTemplates(params?: {
+    category?: string;
+    isPremium?: boolean;
+    isActive?: boolean;
+    searchTerm?: string;
+    sortBy?: string;
+    sortDescending?: boolean;
+    page?: number;
+    pageSize?: number;
+  }): Promise<ApiResponse<PagedResult<TemplateListDto>>> {
+    try {
+      const response = await this.client.get<ApiResponse<PagedResult<TemplateListDto>>>(
+        API_ENDPOINTS.TEMPLATES,
+        { params }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async getTemplate(id: string): Promise<ApiResponse<Template>> {
+    try {
+      const response = await this.client.get<ApiResponse<Template>>(
+        API_ENDPOINTS.TEMPLATE_BY_ID(id)
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async getFeaturedTemplates(count: number = 10): Promise<ApiResponse<TemplateListDto[]>> {
+    try {
+      const response = await this.client.get<ApiResponse<TemplateListDto[]>>(
+        API_ENDPOINTS.TEMPLATES_FEATURED,
+        { params: { count } }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async getTemplatesByCategory(category: string, count: number = 20): Promise<ApiResponse<TemplateListDto[]>> {
+    try {
+      const response = await this.client.get<ApiResponse<TemplateListDto[]>>(
+        API_ENDPOINTS.TEMPLATES_BY_CATEGORY(category),
+        { params: { count } }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  // File Methods
+  async uploadFile(file: File): Promise<FileUploadResponse> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await this.client.post<FileUploadResponse>(
+        API_ENDPOINTS.FILES_UPLOAD,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async uploadAvatar(file: File): Promise<FileUploadResponse> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await this.client.post<FileUploadResponse>(
+        API_ENDPOINTS.FILES_AVATAR,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async uploadThumbnail(projectId: string, file: File): Promise<FileUploadResponse> {
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await this.client.post<FileUploadResponse>(
+        `${API_ENDPOINTS.FILES_THUMBNAIL}/${projectId}`,
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async getUserFiles(): Promise<ApiResponse<string[]>> {
+    try {
+      const response = await this.client.get<ApiResponse<string[]>>(
+        API_ENDPOINTS.FILES_LIST
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async deleteFile(fileUrl: string): Promise<ApiResponse> {
+    try {
+      const response = await this.client.delete<ApiResponse>(
+        API_ENDPOINTS.FILES_DELETE,
+        { params: { fileUrl } }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  // History Methods
+  async getHistory(params?: {
+    actionType?: string;
+    projectId?: string;
+    fromDate?: string;
+    toDate?: string;
+    sortBy?: string;
+    sortDescending?: boolean;
+    page?: number;
+    pageSize?: number;
+  }): Promise<ApiResponse<PagedResult<HistoryItem>>> {
+    try {
+      const response = await this.client.get<ApiResponse<PagedResult<HistoryItem>>>(
+        API_ENDPOINTS.HISTORY,
+        { params }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async getRecentHistory(count: number = 10): Promise<ApiResponse<HistoryItem[]>> {
+    try {
+      const response = await this.client.get<ApiResponse<HistoryItem[]>>(
+        API_ENDPOINTS.HISTORY_RECENT,
+        { params: { count } }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
+  }
+
+  async clearHistory(olderThan?: string): Promise<ApiResponse> {
+    try {
+      const response = await this.client.delete<ApiResponse>(
+        API_ENDPOINTS.HISTORY,
+        { params: { olderThan } }
+      );
+      return response.data;
+    } catch (error) {
+      throw new Error(getErrorMessage(error));
+    }
   }
 }
 
-export const apiService = new ApiService();
+export const apiClient = new ApiClient();
+export default apiClient;

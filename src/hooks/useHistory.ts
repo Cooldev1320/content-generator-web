@@ -1,106 +1,137 @@
 import { useState, useEffect, useCallback } from 'react';
-import { apiService } from '@/lib/api';
-import { HistoryItem } from '@/types/api';
+import { apiClient } from '@/lib/api';
+import type { HistoryItem, PagedResult } from '@/types';
 
-export const useHistory = () => {
+interface UseHistoryOptions {
+  pageSize?: number;
+  autoLoad?: boolean;
+}
+
+export function useHistory(options: UseHistoryOptions = {}) {
+  const { pageSize = 20, autoLoad = true } = options;
+  
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    totalPages: 0,
+    totalCount: 0,
+  });
 
-  const fetchHistory = useCallback(async () => {
+  const loadHistory = useCallback(async (page = 1, filters?: {
+    actionType?: string;
+    projectId?: string;
+    fromDate?: string;
+    toDate?: string;
+  }) => {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await apiService.getHistory();
-      
-      if (response.success) {
-        setHistory(response.data || []);
+
+      const response = await apiClient.getHistory({
+        page,
+        pageSize,
+        ...filters,
+      });
+
+      if (response.success && response.data) {
+        setHistory(response.data.items);
+        setPagination({
+          page: response.data.page,
+          totalPages: response.data.totalPages,
+          totalCount: response.data.totalCount,
+        });
       } else {
-        setError(response.message || 'Failed to fetch history');
+        throw new Error(response.message || 'Failed to load history');
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to fetch history');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load history');
+    } finally {
+      setLoading(false);
+    }
+  }, [pageSize]);
+
+  const loadRecentHistory = useCallback(async (count = 10) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const response = await apiClient.getRecentHistory(count);
+
+      if (response.success && response.data) {
+        setHistory(response.data);
+        setPagination({
+          page: 1,
+          totalPages: 1,
+          totalCount: response.data.length,
+        });
+      } else {
+        throw new Error(response.message || 'Failed to load recent history');
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load recent history');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const clearHistory = useCallback(async () => {
+  const clearHistory = useCallback(async (olderThan?: string) => {
     try {
       setLoading(true);
       setError(null);
-      
-      const response = await apiService.clearHistory();
-      
+
+      const response = await apiClient.clearHistory(olderThan);
+
       if (response.success) {
-        setHistory([]);
+        // Reload current page after clearing
+        await loadHistory(pagination.page);
       } else {
-        setError(response.message || 'Failed to clear history');
+        throw new Error(response.message || 'Failed to clear history');
       }
-    } catch (err: any) {
-      setError(err.message || 'Failed to clear history');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to clear history');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loadHistory, pagination.page]);
 
-  const addHistoryItem = useCallback((item: Omit<HistoryItem, 'id' | 'createdAt'>) => {
-    const newItem: HistoryItem = {
-      ...item,
-      id: `history_${Date.now()}`,
-      createdAt: new Date().toISOString(),
-    };
-    
-    setHistory(prev => [newItem, ...prev]);
-  }, []);
-
-  const getRecentHistory = useCallback((limit = 10) => {
-    return history.slice(0, limit);
-  }, [history]);
-
-  const filterHistory = useCallback((
-    filters: {
-      resourceType?: 'project' | 'template' | 'file';
-      action?: string;
-      search?: string;
+  const goToPage = useCallback((page: number) => {
+    if (page >= 1 && page <= pagination.totalPages) {
+      loadHistory(page);
     }
-  ) => {
-    return history.filter(item => {
-      if (filters.resourceType && item.resourceType !== filters.resourceType) {
-        return false;
-      }
-      
-      if (filters.action && item.action !== filters.action) {
-        return false;
-      }
-      
-      if (filters.search) {
-        const searchLower = filters.search.toLowerCase();
-        return (
-          item.resourceName.toLowerCase().includes(searchLower) ||
-          item.action.toLowerCase().includes(searchLower)
-        );
-      }
-      
-      return true;
-    });
-  }, [history]);
+  }, [loadHistory, pagination.totalPages]);
 
+  const nextPage = useCallback(() => {
+    if (pagination.page < pagination.totalPages) {
+      goToPage(pagination.page + 1);
+    }
+  }, [goToPage, pagination.page, pagination.totalPages]);
+
+  const prevPage = useCallback(() => {
+    if (pagination.page > 1) {
+      goToPage(pagination.page - 1);
+    }
+  }, [goToPage, pagination.page]);
+
+  // Auto-load on mount
   useEffect(() => {
-    fetchHistory();
-  }, [fetchHistory]);
+    if (autoLoad) {
+      loadHistory(1);
+    }
+  }, [autoLoad, loadHistory]);
 
   return {
     history,
     loading,
     error,
-    fetchHistory,
+    pagination,
+    loadHistory,
+    loadRecentHistory,
     clearHistory,
-    addHistoryItem,
-    getRecentHistory,
-    filterHistory,
+    goToPage,
+    nextPage,
+    prevPage,
+    refresh: () => loadHistory(pagination.page),
   };
-};
-
-export default useHistory;
+}

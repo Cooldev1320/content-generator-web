@@ -1,132 +1,226 @@
 'use client';
 
-import Link from 'next/link';
-import { Button } from '@/components/ui/Button';
+import { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Button, Card, Input } from '@/components/ui';
 
-export default function CreatePage() {
-  const createOptions = [
-    {
-      title: 'Instagram Post',
-      subtitle: '1080 x 1080 px',
-      icon: '📱',
-      color: 'bg-pink-500',
-    },
-    {
-      title: 'Instagram Story',
-      subtitle: '1080 x 1920 px',
-      icon: '📖',
-      color: 'bg-purple-500',
-    },
-    {
-      title: 'Facebook Post',
-      subtitle: '1200 x 630 px',
-      icon: '📘',
-      color: 'bg-blue-600',
-    },
-    {
-      title: 'Twitter Header',
-      subtitle: '1500 x 500 px',
-      icon: '🐦',
-      color: 'bg-sky-500',
-    },
-    {
-      title: 'LinkedIn Post',
-      subtitle: '1200 x 627 px',
-      icon: '💼',
-      color: 'bg-blue-700',
-    },
-    {
-      title: 'Custom Size',
-      subtitle: 'Your dimensions',
-      icon: '📐',
-      color: 'bg-gray-500',
-    },
-  ];
+function CreatePageContent() {
+  const [projectName, setProjectName] = useState('');
+  const [selectedTemplate, setSelectedTemplate] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+  
+  const router = useRouter();
+  const searchParams = useSearchParams();
 
-  const handleCreateProject = (option: typeof createOptions[0]) => {
-    console.log('Creating project:', option.title);
+  // Mock templates data - TODO: Replace with API call
+  const [templates] = useState([
+    {
+      id: 'blank',
+      name: 'Blank Canvas',
+      description: 'Start with a completely blank canvas',
+      thumbnail: '🎨',
+      category: 'blank'
+    },
+    {
+      id: 'social-post',
+      name: 'Social Media Post',
+      description: 'Perfect for Instagram, Facebook, Twitter posts',
+      thumbnail: '📱',
+      category: 'social'
+    },
+    {
+      id: 'banner',
+      name: 'Banner Design',
+      description: 'Create eye-catching banners and headers',
+      thumbnail: '🏷️',
+      category: 'marketing'
+    },
+    {
+      id: 'presentation',
+      name: 'Presentation Slide',
+      description: 'Professional presentation templates',
+      thumbnail: '📊',
+      category: 'business'
+    },
+    {
+      id: 'flyer',
+      name: 'Flyer Template',
+      description: 'Event flyers and promotional materials',
+      thumbnail: '📄',
+      category: 'marketing'
+    },
+    {
+      id: 'logo',
+      name: 'Logo Design',
+      description: 'Create professional logos and branding',
+      thumbnail: '🎯',
+      category: 'branding'
+    }
+  ]);
+
+  useEffect(() => {
+    // Check if template is selected from URL
+    const templateId = searchParams.get('template');
+    if (templateId) {
+      setSelectedTemplate(templateId);
+      const template = templates.find(t => t.id === templateId);
+      if (template) {
+        setProjectName(`${template.name} Project`);
+      }
+    }
+  }, [searchParams, templates]);
+
+  const handleCreateProject = async () => {
+    if (!projectName.trim()) {
+      setError('Please enter a project name');
+      return;
+    }
+
+    setIsLoading(true);
+    setError('');
+
+    try {
+      // TODO: Replace with API call
+      // const response = await apiClient.createProject({
+      //   name: projectName,
+      //   templateId: selectedTemplate,
+      //   description: `Created from ${selectedTemplate || 'blank'} template`
+      // });
+
+      // For now, create project in localStorage
+      const newProject = {
+        id: `project_${Date.now()}`,
+        name: projectName,
+        templateId: selectedTemplate,
+        description: `Created from ${selectedTemplate || 'blank'} template`,
+        status: 'draft',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        canvasData: null,
+        thumbnailUrl: null
+      };
+
+      // Save to localStorage
+      const existingProjects = JSON.parse(localStorage.getItem('projects') || '[]');
+      existingProjects.push(newProject);
+      localStorage.setItem('projects', JSON.stringify(existingProjects));
+
+      // Redirect to editor
+      router.push(`/editor/${newProject.id}`);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create project');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleTemplateSelect = (templateId: string) => {
+    setSelectedTemplate(templateId);
+    const template = templates.find(t => t.id === templateId);
+    if (template && !projectName) {
+      setProjectName(`${template.name} Project`);
+    }
   };
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Create New Design</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Choose a format to get started with your design
-        </p>
-      </div>
-
-      {/* Quick Start */}
-      <div>
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Start</h2>
-        <Link href="/templates">
-          <div className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow cursor-pointer border border-gray-200 hover:border-indigo-300">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-12 h-12 bg-indigo-500 rounded-lg flex items-center justify-center text-white text-2xl">
-                  ⚡
-                </div>
-              </div>
-              <div className="ml-4 flex-1">
-                <h3 className="text-lg font-medium text-gray-900">
-                  Start from Template
-                </h3>
-                <p className="text-sm text-gray-500">
-                  Browse our collection of professional templates
-                </p>
-              </div>
-              <div className="flex-shrink-0">
-                <svg className="w-5 h-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clipRule="evenodd" />
-                </svg>
-              </div>
-            </div>
-          </div>
-        </Link>
-      </div>
-
-      {/* Create from Scratch */}
-      <div>
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Create from Scratch</h2>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {createOptions.map((option, index) => (
-            <button
-              key={index}
-              onClick={() => handleCreateProject(option)}
-              className="bg-white p-6 rounded-lg shadow hover:shadow-md transition-shadow text-left border border-gray-200 hover:border-indigo-300 focus:outline-none focus:ring-2 focus:ring-indigo-500"
-            >
-              <div className="flex flex-col items-center text-center">
-                <div className={`w-16 h-16 ${option.color} rounded-lg flex items-center justify-center text-white text-2xl mb-4`}>
-                  {option.icon}
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 mb-2">
-                  {option.title}
-                </h3>
-                <p className="text-sm text-gray-500">
-                  {option.subtitle}
-                </p>
-              </div>
-            </button>
-          ))}
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Create New Project</h1>
+          <p className="text-gray-600">
+            Choose a template or start with a blank canvas to create your content.
+          </p>
         </div>
-      </div>
 
-      {/* Recent Projects */}
-      <div>
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Continue Recent</h2>
-        <div className="bg-white rounded-lg shadow">
-          <div className="p-12 text-center">
-            <div className="text-4xl mb-4">📁</div>
-            <h3 className="text-lg font-medium text-gray-900 mb-2">
-              No recent projects
-            </h3>
-            <p className="text-gray-500">
-              Your recent projects will appear here
-            </p>
+        {/* Project Name Input */}
+        <div className="mb-8">
+          <Card className="p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Project Details</h2>
+            <Input
+              label="Project Name"
+              type="text"
+              value={projectName}
+              onChange={(e) => setProjectName(e.target.value)}
+              placeholder="Enter your project name"
+              required
+            />
+          </Card>
+        </div>
+
+        {/* Template Selection */}
+        <div className="mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">Choose a Template</h2>
+          
+          {error && (
+            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-600 text-sm">{error}</p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {templates.map((template) => (
+              <Card
+                key={template.id}
+                className={`p-6 cursor-pointer transition-all ${
+                  selectedTemplate === template.id
+                    ? 'ring-2 ring-blue-500 bg-blue-50'
+                    : 'hover:shadow-md hover:bg-gray-50'
+                }`}
+                onClick={() => handleTemplateSelect(template.id)}
+              >
+                <div className="text-center">
+                  <div className="text-4xl mb-4">{template.thumbnail}</div>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    {template.name}
+                  </h3>
+                  <p className="text-sm text-gray-600 mb-4">
+                    {template.description}
+                  </p>
+                  <div className="text-xs text-gray-500 uppercase tracking-wide">
+                    {template.category}
+                  </div>
+                </div>
+              </Card>
+            ))}
           </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-between">
+          <Button
+            variant="outline"
+            onClick={() => router.back()}
+            disabled={isLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="primary"
+            onClick={handleCreateProject}
+            isLoading={isLoading}
+            disabled={!projectName.trim() || isLoading}
+          >
+            {isLoading ? 'Creating...' : 'Create Project'}
+          </Button>
         </div>
       </div>
     </div>
+  );
+}
+
+export default function CreatePage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    }>
+      <CreatePageContent />
+    </Suspense>
   );
 }

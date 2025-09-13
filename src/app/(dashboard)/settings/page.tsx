@@ -1,316 +1,453 @@
 'use client';
 
-import { useState } from 'react';
-import { useAuthStore } from '@/store/authStore';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { useState, useEffect } from 'react';
+import { Button, Card, Input, Badge } from '@/components/ui';
 
 export default function SettingsPage() {
-  const { user, logout } = useAuthStore();
-  const [activeTab, setActiveTab] = useState('profile');
+  const [user, setUser] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
 
-  const tabs = [
-    { id: 'profile', name: 'Profile', icon: '👤' },
-    { id: 'account', name: 'Account', icon: '⚙️' },
-    { id: 'subscription', name: 'Subscription', icon: '💎' },
-    { id: 'preferences', name: 'Preferences', icon: '🎨' },
-  ];
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    username: '',
+    bio: '',
+    website: '',
+    notifications: {
+      email: true,
+      push: true,
+      marketing: false,
+    },
+    preferences: {
+      theme: 'light',
+      language: 'en',
+      timezone: 'UTC',
+    }
+  });
 
-  const ProfileSettings = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Profile Information</h3>
-        <div className="space-y-4">
-          <div className="flex items-center space-x-6">
-            <div className="w-20 h-20 bg-indigo-500 rounded-full flex items-center justify-center text-white text-2xl font-bold">
-              {(user?.fullName || user?.username || 'U').charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <Button variant="outline" size="sm">
-                Change Avatar
-              </Button>
-              <p className="text-sm text-gray-500 mt-1">
-                JPG, GIF or PNG. 1MB max.
-              </p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Input
-              label="Full Name"
-              defaultValue={user?.fullName || ''}
-              placeholder="Enter your full name"
-            />
-            <Input
-              label="Username"
-              defaultValue={user?.username || ''}
-              placeholder="Enter your username"
-            />
-          </div>
-          
-          <Input
-            label="Email"
-            defaultValue={user?.email || ''}
-            placeholder="Enter your email"
-            type="email"
-          />
-          
-          <Button>Save Changes</Button>
-        </div>
-      </div>
-    </div>
-  );
+  useEffect(() => {
+    loadUserData();
+  }, []);
 
-  const AccountSettings = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Account Security</h3>
-        <div className="space-y-4">
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="font-medium text-gray-900 mb-2">Change Password</h4>
-            <p className="text-sm text-gray-600 mb-4">
-              Ensure your account is using a long, random password to stay secure.
-            </p>
-            <Button variant="outline">Update Password</Button>
-          </div>
-          
-          <div className="bg-gray-50 p-4 rounded-lg">
-            <h4 className="font-medium text-gray-900 mb-2">Two-Factor Authentication</h4>
-            <p className="text-sm text-gray-600 mb-4">
-              Add additional security to your account using two-factor authentication.
-            </p>
-            <Button variant="outline">Enable 2FA</Button>
-          </div>
-        </div>
-      </div>
-      
-      <div className="border-t pt-6">
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Danger Zone</h3>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <h4 className="font-medium text-red-900 mb-2">Delete Account</h4>
-          <p className="text-sm text-red-700 mb-4">
-            Once you delete your account, there is no going back. Please be certain.
-          </p>
-          <Button variant="outline" className="border-red-300 text-red-700 hover:bg-red-50">
-            Delete Account
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
+  const loadUserData = () => {
+    try {
+      // TODO: Replace with API call
+      // const response = await apiClient.getProfile();
+      // setUser(response.data);
 
-  const SubscriptionSettings = () => {
-    const getSubscriptionBadgeColor = (tier: string) => {
-      switch (tier) {
-        case 'Premium':
-          return 'bg-yellow-100 text-yellow-800';
-        case 'Pro':
-          return 'bg-blue-100 text-blue-800';
-        default:
-          return 'bg-gray-100 text-gray-800';
+      // For now, load from localStorage or use mock data
+      const savedUser = localStorage.getItem('user');
+      if (savedUser) {
+        const userData = JSON.parse(savedUser);
+        setUser(userData);
+        setFormData({
+          fullName: userData.fullName || '',
+          email: userData.email || '',
+          username: userData.username || '',
+          bio: userData.bio || '',
+          website: userData.website || '',
+          notifications: userData.notifications || {
+            email: true,
+            push: true,
+            marketing: false,
+          },
+          preferences: userData.preferences || {
+            theme: 'light',
+            language: 'en',
+            timezone: 'UTC',
+          }
+        });
+      } else {
+        // Mock user data for demo
+        const mockUser = {
+          id: 'user_1',
+          fullName: 'John Doe',
+          email: 'john@example.com',
+          username: 'johndoe',
+          bio: 'Content creator and designer',
+          website: 'https://johndoe.com',
+          avatar: null,
+          subscription: 'free',
+          createdAt: new Date().toISOString(),
+        };
+        setUser(mockUser);
+        setFormData({
+          fullName: mockUser.fullName,
+          email: mockUser.email,
+          username: mockUser.username,
+          bio: mockUser.bio,
+          website: mockUser.website,
+          notifications: {
+            email: true,
+            push: true,
+            marketing: false,
+          },
+          preferences: {
+            theme: 'light',
+            language: 'en',
+            timezone: 'UTC',
+          }
+        });
       }
-    };
-
-    return (
-      <div className="space-y-6">
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Current Plan</h3>
-          <div className="bg-white border border-gray-200 rounded-lg p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <div className="flex items-center space-x-2">
-                  <h4 className="text-xl font-bold text-gray-900">
-                    {user?.subscriptionTier || 'Free'} Plan
-                  </h4>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getSubscriptionBadgeColor(user?.subscriptionTier || 'Free')}`}>
-                    {user?.subscriptionTier || 'Free'}
-                  </span>
-                </div>
-                <p className="text-gray-600">
-                  {user?.subscriptionTier === 'Free' 
-                    ? 'Basic features with limited exports'
-                    : 'Full access to all features'
-                  }
-                </p>
-              </div>
-              {user?.subscriptionTier === 'Free' && (
-                <Button>Upgrade Plan</Button>
-              )}
-            </div>
-            
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-indigo-600">
-                  {user?.monthlyExportsUsed || 0}
-                </div>
-                <div className="text-sm text-gray-600">Exports Used</div>
-              </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-indigo-600">
-                  {user?.monthlyExportsLimit || 5}
-                </div>
-                <div className="text-sm text-gray-600">Monthly Limit</div>
-              </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <div className="text-2xl font-bold text-indigo-600">12</div>
-                <div className="text-sm text-gray-600">Projects</div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {user?.subscriptionTier === 'Free' && (
-          <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-lg p-6 text-white">
-            <h3 className="text-xl font-bold mb-2">Unlock More Features</h3>
-            <p className="text-indigo-100 mb-4">
-              Upgrade to Pro for unlimited exports, premium templates, and advanced features.
-            </p>
-            <ul className="space-y-2 text-sm text-indigo-100 mb-6">
-              <li className="flex items-center">
-                <span className="mr-2">✓</span>
-                Unlimited exports
-              </li>
-              <li className="flex items-center">
-                <span className="mr-2">✓</span>
-                Access to premium templates
-              </li>
-              <li className="flex items-center">
-                <span className="mr-2">✓</span>
-                Advanced editing tools
-              </li>
-              <li className="flex items-center">
-                <span className="mr-2">✓</span>
-                Priority support
-              </li>
-            </ul>
-            <Button variant="secondary" className="bg-white text-indigo-600 hover:bg-gray-100">
-              Upgrade to Pro - $9.99/month
-            </Button>
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  const PreferencesSettings = () => (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Design Preferences</h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <label className="text-sm font-medium text-gray-900">Auto-save</label>
-              <p className="text-sm text-gray-500">Automatically save your work every 30 seconds</p>
-            </div>
-            <div className="relative inline-block w-10 mr-2 align-middle select-none">
-              <input type="checkbox" className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-              <label className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
-            </div>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-900 mb-2">
-              Default Export Quality
-            </label>
-            <select className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
-              <option>High (PNG)</option>
-              <option>Medium (JPG)</option>
-              <option>Low (JPG)</option>
-            </select>
-          </div>
-        </div>
-      </div>
-      
-      <div>
-        <h3 className="text-lg font-medium text-gray-900 mb-4">Notifications</h3>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <label className="text-sm font-medium text-gray-900">Email notifications</label>
-              <p className="text-sm text-gray-500">Get emails about your account activity</p>
-            </div>
-            <div className="relative inline-block w-10 mr-2 align-middle select-none">
-              <input type="checkbox" className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-              <label className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
-            </div>
-          </div>
-          
-          <div className="flex items-center justify-between">
-            <div>
-              <label className="text-sm font-medium text-gray-900">Marketing emails</label>
-              <p className="text-sm text-gray-500">Get emails about new features and tips</p>
-            </div>
-            <div className="relative inline-block w-10 mr-2 align-middle select-none">
-              <input type="checkbox" className="toggle-checkbox absolute block w-6 h-6 rounded-full bg-white border-4 appearance-none cursor-pointer"/>
-              <label className="toggle-label block overflow-hidden h-6 rounded-full bg-gray-300 cursor-pointer"></label>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'profile':
-        return <ProfileSettings />;
-      case 'account':
-        return <AccountSettings />;
-      case 'subscription':
-        return <SubscriptionSettings />;
-      case 'preferences':
-        return <PreferencesSettings />;
-      default:
-        return <ProfileSettings />;
+    } catch (err) {
+      console.error('Failed to load user data:', err);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
-        <p className="mt-1 text-sm text-gray-600">
-          Manage your account settings and preferences
-        </p>
+  const handleSave = async () => {
+    setIsSaving(true);
+    setError('');
+    setSuccess('');
+
+    try {
+      // TODO: Replace with API call
+      // const response = await apiClient.updateProfile(formData);
+      // if (response.success) {
+      //   setSuccess('Profile updated successfully');
+      // }
+
+      // For now, save to localStorage
+      const updatedUser = {
+        ...user,
+        fullName: formData.fullName,
+        email: formData.email,
+        username: formData.username,
+        bio: formData.bio,
+        website: formData.website,
+        notifications: formData.notifications,
+        preferences: formData.preferences,
+        updatedAt: new Date().toISOString()
+      };
+      
+      setUser(updatedUser);
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setSuccess('Profile updated successfully');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value, type } = e.target;
+    if (type === 'checkbox') {
+      const checked = (e.target as HTMLInputElement).checked;
+      const [parent, child] = name.split('.');
+      setFormData(prev => ({
+        ...prev,
+        [parent]: {
+          ...(prev[parent as keyof typeof prev] as Record<string, any>),
+          [child]: checked
+        }
+      }));
+    } else {
+      setFormData(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  const handleChangePassword = () => {
+    // TODO: Implement password change
+    alert('Password change functionality will be implemented with API integration');
+  };
+
+  const handleDeleteAccount = () => {
+    if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+      // TODO: Implement account deletion
+      alert('Account deletion functionality will be implemented with API integration');
+    }
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading settings...</p>
+        </div>
       </div>
+    );
+  }
 
-      <div className="lg:grid lg:grid-cols-12 lg:gap-x-5">
-        {/* Sidebar */}
-        <aside className="py-6 px-2 sm:px-6 lg:py-0 lg:px-0 lg:col-span-3">
-          <nav className="space-y-1">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`w-full group rounded-md px-3 py-2 flex items-center text-sm font-medium text-left ${
-                  activeTab === tab.id
-                    ? 'bg-gray-50 text-indigo-700'
-                    : 'text-gray-900 hover:text-gray-900 hover:bg-gray-50'
-                }`}
-              >
-                <span className="mr-3 text-lg">{tab.icon}</span>
-                {tab.name}
-              </button>
-            ))}
-            
-            <div className="border-t border-gray-200 pt-4 mt-4">
-              <button
-                onClick={() => logout()}
-                className="w-full group rounded-md px-3 py-2 flex items-center text-sm font-medium text-red-600 hover:bg-red-50"
-              >
-                <span className="mr-3 text-lg">🚪</span>
-                Sign Out
-              </button>
-            </div>
-          </nav>
-        </aside>
+  return (
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-gray-900 mb-4">Settings</h1>
+          <p className="text-gray-600">
+            Manage your account settings and preferences.
+          </p>
+        </div>
 
-        {/* Main content */}
-        <div className="space-y-6 sm:px-6 lg:px-0 lg:col-span-9">
-          <div className="bg-white shadow px-4 py-6 sm:p-6 sm:rounded-lg">
-            {renderContent()}
+        {/* Success/Error Messages */}
+        {success && (
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
+            <p className="text-green-600 text-sm">{success}</p>
           </div>
+        )}
+
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{error}</p>
+          </div>
+        )}
+
+        {/* Profile Information */}
+        <Card className="p-6 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-6">Profile Information</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Input
+              label="Full Name"
+              name="fullName"
+              value={formData.fullName}
+              onChange={handleInputChange}
+              placeholder="Enter your full name"
+            />
+
+            <Input
+              label="Username"
+              name="username"
+              value={formData.username}
+              onChange={handleInputChange}
+              placeholder="Enter your username"
+            />
+
+            <Input
+              label="Email Address"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleInputChange}
+              placeholder="Enter your email"
+            />
+
+            <Input
+              label="Website"
+              name="website"
+              value={formData.website}
+              onChange={handleInputChange}
+              placeholder="https://yourwebsite.com"
+            />
+          </div>
+
+          <div className="mt-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Bio
+            </label>
+            <textarea
+              name="bio"
+              value={formData.bio}
+              onChange={handleInputChange}
+              rows={3}
+              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              placeholder="Tell us about yourself"
+            />
+          </div>
+        </Card>
+
+        {/* Account Status */}
+        <Card className="p-6 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-6">Account Status</h2>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-900">Subscription Plan</h3>
+              <p className="text-sm text-gray-600">Current plan and usage</p>
+            </div>
+            <div className="flex items-center space-x-3">
+              <Badge variant="secondary">
+                {user?.subscription || 'Free'} Plan
+              </Badge>
+              <Button variant="outline" size="sm">
+                Upgrade
+              </Button>
+            </div>
+          </div>
+
+          <div className="mt-6 grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="text-center p-4 bg-gray-50 rounded-lg">
+              <p className="text-2xl font-semibold text-gray-900">12</p>
+              <p className="text-sm text-gray-600">Projects Created</p>
+            </div>
+            <div className="text-center p-4 bg-gray-50 rounded-lg">
+              <p className="text-2xl font-semibold text-gray-900">3</p>
+              <p className="text-sm text-gray-600">Active Projects</p>
+            </div>
+            <div className="text-center p-4 bg-gray-50 rounded-lg">
+              <p className="text-2xl font-semibold text-gray-900">24</p>
+              <p className="text-sm text-gray-600">Total Exports</p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Notifications */}
+        <Card className="p-6 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-6">Notifications</h2>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-gray-900">Email Notifications</h3>
+                <p className="text-sm text-gray-600">Receive updates via email</p>
+              </div>
+              <input
+                type="checkbox"
+                name="notifications.email"
+                checked={formData.notifications.email}
+                onChange={handleInputChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-gray-900">Push Notifications</h3>
+                <p className="text-sm text-gray-600">Receive browser notifications</p>
+              </div>
+              <input
+                type="checkbox"
+                name="notifications.push"
+                checked={formData.notifications.push}
+                onChange={handleInputChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-gray-900">Marketing Emails</h3>
+                <p className="text-sm text-gray-600">Receive product updates and tips</p>
+              </div>
+              <input
+                type="checkbox"
+                name="notifications.marketing"
+                checked={formData.notifications.marketing}
+                onChange={handleInputChange}
+                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* Preferences */}
+        <Card className="p-6 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-6">Preferences</h2>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Theme
+              </label>
+              <select
+                name="preferences.theme"
+                value={formData.preferences.theme}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  preferences: {
+                    ...prev.preferences,
+                    theme: e.target.value
+                  }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="system">System</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Language
+              </label>
+              <select
+                name="preferences.language"
+                value={formData.preferences.language}
+                onChange={(e) => setFormData(prev => ({
+                  ...prev,
+                  preferences: {
+                    ...prev.preferences,
+                    language: e.target.value
+                  }
+                }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="en">English</option>
+                <option value="es">Spanish</option>
+                <option value="fr">French</option>
+                <option value="de">German</option>
+              </select>
+            </div>
+          </div>
+        </Card>
+
+        {/* Security */}
+        <Card className="p-6 mb-8">
+          <h2 className="text-lg font-semibold text-gray-900 mb-6">Security</h2>
+          
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-gray-900">Password</h3>
+                <p className="text-sm text-gray-600">Last changed 30 days ago</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleChangePassword}>
+                Change Password
+              </Button>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-medium text-gray-900">Two-Factor Authentication</h3>
+                <p className="text-sm text-gray-600">Add an extra layer of security</p>
+              </div>
+              <Button variant="outline" size="sm">
+                Enable 2FA
+              </Button>
+            </div>
+          </div>
+        </Card>
+
+        {/* Danger Zone */}
+        <Card className="p-6 border-red-200">
+          <h2 className="text-lg font-semibold text-red-900 mb-6">Danger Zone</h2>
+          
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-gray-900">Delete Account</h3>
+              <p className="text-sm text-gray-600">Permanently delete your account and all data</p>
+            </div>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleDeleteAccount}
+              className="text-red-600 border-red-300 hover:bg-red-50"
+            >
+              Delete Account
+            </Button>
+          </div>
+        </Card>
+
+        {/* Save Button */}
+        <div className="mt-8 flex justify-end">
+          <Button
+            variant="primary"
+            onClick={handleSave}
+            isLoading={isSaving}
+            disabled={isSaving}
+          >
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </Button>
         </div>
       </div>
     </div>

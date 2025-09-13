@@ -1,11 +1,12 @@
 'use client';
 
-import React from 'react';
+import { useState } from 'react';
+import { Button, Card } from '@/components/ui';
 
 interface Layer {
   id: string;
   name: string;
-  type: string;
+  type: 'text' | 'image' | 'shape' | 'background';
   visible: boolean;
   locked: boolean;
 }
@@ -13,135 +14,127 @@ interface Layer {
 interface LayerPanelProps {
   layers: Layer[];
   selectedLayerId?: string;
-  onLayerSelect?: (layerId: string) => void;
-  onLayerToggleVisibility?: (layerId: string) => void;
-  onLayerToggleLock?: (layerId: string) => void;
-  onLayerDelete?: (layerId: string) => void;
-  onLayerRename?: (layerId: string, newName: string) => void;
+  onLayerSelect: (layerId: string) => void;
+  onLayerToggleVisibility: (layerId: string) => void;
+  onLayerToggleLock: (layerId: string) => void;
+  onLayerReorder: (layerId: string, direction: 'up' | 'down') => void;
+  onLayerDelete: (layerId: string) => void;
 }
 
-export const LayerPanel: React.FC<LayerPanelProps> = ({
+export default function LayerPanel({
   layers,
   selectedLayerId,
   onLayerSelect,
   onLayerToggleVisibility,
   onLayerToggleLock,
-  onLayerDelete,
-  onLayerRename,
-}) => {
-  const handleRename = (layerId: string, currentName: string) => {
-    const newName = prompt('Enter new layer name:', currentName);
-    if (newName && newName !== currentName) {
-      onLayerRename?.(layerId, newName);
+  onLayerReorder,
+  onLayerDelete
+}: LayerPanelProps) {
+  const [isExpanded, setIsExpanded] = useState(true);
+
+  const getLayerIcon = (type: string) => {
+    switch (type) {
+      case 'text':
+        return 'M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z';
+      case 'image':
+        return 'M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z';
+      case 'shape':
+        return 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zM21 5a2 2 0 00-2-2h-4a2 2 0 00-2 2v12a4 4 0 004 4h4a2 2 0 002-2V5z';
+      case 'background':
+        return 'M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z';
+      default:
+        return 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z';
     }
   };
 
   return (
-    <div className="w-64 bg-white border-l border-gray-200 p-4">
-      <div className="mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Layers</h3>
-      </div>
-
-      <div className="space-y-1">
-        {layers.map((layer) => (
-          <div
-            key={layer.id}
-            className={`group flex items-center p-2 rounded-md cursor-pointer transition-colors ${
-              selectedLayerId === layer.id
-                ? 'bg-indigo-50 border border-indigo-200'
-                : 'hover:bg-gray-50'
-            }`}
-            onClick={() => onLayerSelect?.(layer.id)}
+    <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
+      <div className="p-4 border-b border-gray-200">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-medium text-gray-900">Layers</h3>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setIsExpanded(!isExpanded)}
           >
-            {/* Layer Type Icon */}
-            <div className="w-6 h-6 mr-2 flex items-center justify-center">
-              {layer.type === 'text' && '📝'}
-              {layer.type === 'rectangle' && '⬜'}
-              {layer.type === 'circle' && '⭕'}
-              {layer.type === 'image' && '🖼️'}
-            </div>
-
-            {/* Layer Name */}
-            <div 
-              className="flex-1 text-sm text-gray-900 truncate"
-              onDoubleClick={() => handleRename(layer.id, layer.name)}
-            >
-              {layer.name}
-            </div>
-
-            {/* Layer Controls */}
-            <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
-              {/* Visibility Toggle */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onLayerToggleVisibility?.(layer.id);
-                }}
-                className="p-1 text-gray-400 hover:text-gray-600"
-                title={layer.visible ? 'Hide layer' : 'Show layer'}
-              >
-                {layer.visible ? (
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 12a2 2 0 100-4 2 2 0 000 4z"/>
-                    <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd"/>
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M3.707 2.293a1 1 0 00-1.414 1.414l14 14a1 1 0 001.414-1.414l-1.473-1.473A10.014 10.014 0 0019.542 10C18.268 5.943 14.478 3 10 3a9.958 9.958 0 00-4.512 1.074l-1.78-1.781zm4.261 4.26l1.514 1.515a2.003 2.003 0 012.45 2.45l1.514 1.514a4 4 0 00-5.478-5.478z" clipRule="evenodd"/>
-                    <path d="M12.454 16.697L9.75 13.992a4 4 0 01-3.742-3.741L2.335 6.578A9.98 9.98 0 00.458 10c1.274 4.057 5.065 7 9.542 7 .847 0 1.669-.105 2.454-.303z"/>
-                  </svg>
-                )}
-              </button>
-
-              {/* Lock Toggle */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onLayerToggleLock?.(layer.id);
-                }}
-                className="p-1 text-gray-400 hover:text-gray-600"
-                title={layer.locked ? 'Unlock layer' : 'Lock layer'}
-              >
-                {layer.locked ? (
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd"/>
-                  </svg>
-                ) : (
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 2a5 5 0 00-5 5v2a2 2 0 00-2 2v5a2 2 0 002 2h10a2 2 0 002-2v-5a2 2 0 00-2-2H7V7a3 3 0 015.905-.75 1 1 0 001.937-.5A5.002 5.002 0 0010 2z"/>
-                  </svg>
-                )}
-              </button>
-
-              {/* Delete */}
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (confirm('Delete this layer?')) {
-                    onLayerDelete?.(layer.id);
-                  }
-                }}
-                className="p-1 text-gray-400 hover:text-red-600"
-                title="Delete layer"
-              >
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M9 2a1 1 0 000 2h2a1 1 0 100-2H9z" clipRule="evenodd"/>
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd"/>
-                </svg>
-              </button>
-            </div>
-          </div>
-        ))}
+            <svg className={`w-4 h-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </Button>
+        </div>
       </div>
 
-      {layers.length === 0 && (
-        <div className="text-center py-8 text-gray-500">
-          <p className="text-sm">No layers yet</p>
-          <p className="text-xs mt-1">Add elements to create layers</p>
+      {isExpanded && (
+        <div className="flex-1 p-4 overflow-y-auto">
+          <div className="space-y-2">
+            {layers.length === 0 ? (
+              <div className="text-center py-8">
+                <div className="text-gray-400 text-4xl mb-2">📄</div>
+                <p className="text-sm text-gray-500">No layers yet</p>
+              </div>
+            ) : (
+              layers.map((layer) => (
+                <div
+                  key={layer.id}
+                  className={`p-2 rounded border cursor-pointer transition-colors ${
+                    selectedLayerId === layer.id
+                      ? 'bg-blue-50 border-blue-200'
+                      : 'bg-gray-50 border-gray-200 hover:bg-gray-100'
+                  }`}
+                  onClick={() => onLayerSelect(layer.id)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={getLayerIcon(layer.type)} />
+                      </svg>
+                      <span className="text-sm font-medium text-gray-900 truncate">
+                        {layer.name}
+                      </span>
+                    </div>
+                    <div className="flex items-center space-x-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onLayerToggleVisibility(layer.id);
+                        }}
+                        className={`p-1 rounded ${
+                          layer.visible ? 'text-gray-600' : 'text-gray-400'
+                        }`}
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          {layer.visible ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                          ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                          )}
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onLayerToggleLock(layer.id);
+                        }}
+                        className={`p-1 rounded ${
+                          layer.locked ? 'text-gray-600' : 'text-gray-400'
+                        }`}
+                      >
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          {layer.locked ? (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          ) : (
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                          )}
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </div>
       )}
     </div>
   );
-};
-
-export default LayerPanel;
+}

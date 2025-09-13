@@ -1,91 +1,68 @@
 import { useState, useCallback } from 'react';
-import { apiService } from '@/lib/api';
+import { getErrorMessage } from '@/lib/utils';
 
 interface UseApiOptions {
   onSuccess?: (data: any) => void;
-  onError?: (error: any) => void;
+  onError?: (error: string) => void;
 }
 
-export const useApi = () => {
+interface UseApiReturn<T> {
+  data: T | null;
+  loading: boolean;
+  error: string | null;
+  execute: (...args: any[]) => Promise<T | null>;
+  reset: () => void;
+}
+
+export function useApi<T = any>(
+  apiFunction: (...args: any[]) => Promise<T>,
+  options: UseApiOptions = {}
+): UseApiReturn<T> {
+  const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const request = useCallback(async (
-    apiCall: () => Promise<any>,
-    options: UseApiOptions = {}
-  ) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const response = await apiCall();
-      
-      if (response.success) {
-        options.onSuccess?.(response.data);
-        return response.data;
-      } else {
-        const errorMessage = response.message || 'Something went wrong';
+  const execute = useCallback(
+    async (...args: any[]) => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const result = await apiFunction(...args);
+        setData(result);
+        
+        if (options.onSuccess) {
+          options.onSuccess(result);
+        }
+        
+        return result;
+      } catch (err) {
+        const errorMessage = getErrorMessage(err);
         setError(errorMessage);
-        options.onError?.(errorMessage);
-        throw new Error(errorMessage);
+        
+        if (options.onError) {
+          options.onError(errorMessage);
+        }
+        
+        return null;
+      } finally {
+        setLoading(false);
       }
-    } catch (err: any) {
-      const errorMessage = err.response?.data?.message || err.message || 'Network error';
-      setError(errorMessage);
-      options.onError?.(errorMessage);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    },
+    [apiFunction, options]
+  );
 
-  // Template methods
-  const getTemplates = useCallback((params?: any, options?: UseApiOptions) => {
-    return request(() => apiService.getTemplates(params), options);
-  }, [request]);
-
-  const getTemplate = useCallback((id: string, options?: UseApiOptions) => {
-    return request(() => apiService.getTemplate(id), options);
-  }, [request]);
-
-  // Project methods
-  const getProjects = useCallback((params?: any, options?: UseApiOptions) => {
-    return request(() => apiService.getProjects(params), options);
-  }, [request]);
-
-  const createProject = useCallback((data: any, options?: UseApiOptions) => {
-    return request(() => apiService.createProject(data), options);
-  }, [request]);
-
-  const updateProject = useCallback((id: string, data: any, options?: UseApiOptions) => {
-    return request(() => apiService.updateProject(id, data), options);
-  }, [request]);
-
-  const deleteProject = useCallback((id: string, options?: UseApiOptions) => {
-    return request(() => apiService.deleteProject(id), options);
-  }, [request]);
-
-  // File methods
-  const uploadFile = useCallback((file: File, options?: UseApiOptions) => {
-    return request(() => apiService.uploadFile(file), options);
-  }, [request]);
-
-  const clearError = useCallback(() => {
+  const reset = useCallback(() => {
+    setData(null);
     setError(null);
+    setLoading(false);
   }, []);
 
   return {
+    data,
     loading,
     error,
-    clearError,
-    getTemplates,
-    getTemplate,
-    getProjects,
-    createProject,
-    updateProject,
-    deleteProject,
-    uploadFile,
+    execute,
+    reset,
   };
-};
-
-export default useApi;
+}

@@ -1,60 +1,43 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/store/authStore';
 
 interface AuthGuardProps {
   children: React.ReactNode;
-  requireAuth?: boolean;
-  redirectTo?: string;
+  fallback?: React.ReactNode;
 }
 
-export const AuthGuard: React.FC<AuthGuardProps> = ({
-  children,
-  requireAuth = true,
-  redirectTo = '/login',
-}) => {
+export default function AuthGuard({ children, fallback }: AuthGuardProps) {
+  const { isAuthenticated, isLoading } = useAuthStore();
   const router = useRouter();
-  const { isAuthenticated, isLoading, loadUser } = useAuthStore();
-  const [isChecking, setIsChecking] = useState(true);
+  const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      if (!isAuthenticated && !isLoading) {
-        await loadUser();
-      }
-      setIsChecking(false);
-    };
-
-    checkAuth();
-  }, [isAuthenticated, isLoading, loadUser]);
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
-    if (!isChecking && !isLoading) {
-      if (requireAuth && !isAuthenticated) {
-        router.push(redirectTo);
-      } else if (!requireAuth && isAuthenticated) {
-        router.push('/dashboard');
-      }
+    if (isClient && !isLoading && !isAuthenticated) {
+      router.push('/login');
     }
-  }, [isChecking, isLoading, isAuthenticated, requireAuth, redirectTo, router]);
+  }, [isClient, isLoading, isAuthenticated, router]);
 
-  if (isChecking || isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-indigo-600"></div>
+  if (!isClient || isLoading) {
+    return fallback || (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
       </div>
     );
   }
 
-  if (requireAuth && !isAuthenticated) {
-    return null;
-  }
-
-  if (!requireAuth && isAuthenticated) {
+  if (!isAuthenticated) {
     return null;
   }
 
   return <>{children}</>;
-};
+}

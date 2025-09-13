@@ -1,55 +1,97 @@
 'use client';
 
-import { Button } from '@/components/ui/Button';
-import { useAuthStore } from '@/store/authStore';
+import { useState } from 'react';
+import Link from 'next/link';
+import { Button } from '@/components/ui';
 
-export function Header() {
-  const { user, logout } = useAuthStore();
-
-  const handleLogout = async () => {
-    await logout();
-  };
+export default function Header() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   return (
-    <div className="relative z-10 flex-shrink-0 flex h-16 bg-white shadow">
-      <div className="flex-1 px-4 flex justify-between">
-        <div className="flex-1 flex">
-          <div className="w-full flex md:ml-0">
-            <label htmlFor="search-field" className="sr-only">
-              Search
-            </label>
-            <div className="relative w-full text-gray-400 focus-within:text-gray-600">
-              <div className="absolute inset-y-0 left-0 flex items-center pointer-events-none">
-                <svg className="h-5 w-5" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                </svg>
+    <header className="bg-white shadow-sm border-b border-gray-200">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16">
+          {/* Logo */}
+          <div className="flex items-center">
+            <Link href="/" className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">CG</span>
               </div>
-              <input
-                id="search-field"
-                className="block w-full h-full pl-8 pr-3 py-2 border-transparent text-gray-900 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-0 focus:border-transparent"
-                placeholder="Search projects..."
-                type="search"
-              />
-            </div>
+              <span className="text-xl font-bold text-gray-900">Content Generator</span>
+            </Link>
+          </div>
+
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex items-center space-x-8">
+            <Link href="/templates" className="text-gray-600 hover:text-gray-900">
+              Templates
+            </Link>
+            <Link href="/features" className="text-gray-600 hover:text-gray-900">
+              Features
+            </Link>
+            <Link href="/pricing" className="text-gray-600 hover:text-gray-900">
+              Pricing
+            </Link>
+            <Link href="/about" className="text-gray-600 hover:text-gray-900">
+              About
+            </Link>
+          </nav>
+
+          {/* Desktop Auth Buttons */}
+          <div className="hidden md:flex items-center space-x-4">
+            <Link href="/login">
+              <Button variant="ghost">Sign In</Button>
+            </Link>
+            <Link href="/register">
+              <Button variant="primary">Get Started</Button>
+            </Link>
+          </div>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden">
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                {isMenuOpen ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                )}
+              </svg>
+            </button>
           </div>
         </div>
-        <div className="ml-4 flex items-center md:ml-6">
-          <div className="ml-3 relative">
-            <div className="flex items-center space-x-4">
-              <span className="text-sm font-medium text-gray-700">
-                {user?.fullName || user?.username}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleLogout}
-              >
-                Sign out
-              </Button>
-            </div>
+
+        {/* Mobile Navigation */}
+        {isMenuOpen && (
+          <div className="md:hidden py-4 border-t border-gray-200">
+            <nav className="flex flex-col space-y-4">
+              <Link href="/templates" className="text-gray-600 hover:text-gray-900">
+                Templates
+              </Link>
+              <Link href="/features" className="text-gray-600 hover:text-gray-900">
+                Features
+              </Link>
+              <Link href="/pricing" className="text-gray-600 hover:text-gray-900">
+                Pricing
+              </Link>
+              <Link href="/about" className="text-gray-600 hover:text-gray-900">
+                About
+              </Link>
+              <div className="pt-4 border-t border-gray-200 space-y-2">
+                <Link href="/login" className="block">
+                  <Button variant="ghost" className="w-full">Sign In</Button>
+                </Link>
+                <Link href="/register" className="block">
+                  <Button variant="primary" className="w-full">Get Started</Button>
+                </Link>
+              </div>
+            </nav>
           </div>
-        </div>
+        )}
       </div>
-    </div>
+    </header>
   );
 }
