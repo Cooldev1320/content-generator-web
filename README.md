@@ -1,6 +1,7 @@
 # Content Generator Web App
 
 A modern Next.js 14 application for creating and managing professional social media content with an intuitive drag-and-drop editor, template system, and user authentication.
+<video src="https://github.com/user-attachments/assets/24f7cafb-5b33-446f-928a-51206e3f2613" autoplay loop muted playsinline width="600"></video>
 
 ## 🚀 Features
 
